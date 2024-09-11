@@ -8,7 +8,7 @@ from Standart_Scaler import StandartScaler
 
 class SGDRidgeModel:
     
-    def __init__(self, epochs=1000, tau=0.001, eps=1e-4):
+    def __init__(self, epochs=1000, tau=0.001, eps=1e-3):
         """
         Параметры:
         epochs: Количество эпох, сколько раз модель пройдет по данным.
@@ -125,7 +125,6 @@ if __name__ == "__main__":
                 'Latitude',    # Широта
                 'Longitude']   # Долгота
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
     scaler = StandartScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
@@ -133,5 +132,6 @@ if __name__ == "__main__":
     from SGDExperiments import SGDExperiment
     experiment = SGDExperiment(X_train_scaled, X_test_scaled, y_train, y_test)
 
-    tau_values = [1 / (10 ** i) for i in range(1, 7)]
+    tau_values = [1 / (2 ** i) for i in range(0, 9)]
+    print(tau_values)
     experiment.run_tau_experiment(tau_values)
