@@ -13,56 +13,67 @@ class SGDExperiment:
         self.y_train = y_train
         self.y_test = y_test
 
-    def run_tau_experiment(self, tau_values):
+    def run_tau_experiment(self):
         """
-        Проводит серию экспериментов с моделью SGDRidgeModel для различных значений гиперпараметра tau
-        Строит графики сходимости функции потерь для каждого значения tau, а также зависимость коэффициента детерминации R^2 от tau
+        Проводит серию экспериментов с моделью SGDRidgeModel для различных значений гиперпараметра tau.
+        Строит графики сходимости функции потерь для каждого значения tau и зависимости коэффициента детерминации R^2 от tau.
         """
-        Qi_scores = []  # Список для хранения значений функции потерь (Q_i) для каждого tau
-        r2_scores = []  # Список для хранения значений R^2 для обучающей и тестовой выборок
+        tau_values = np.logspace(-5, 0, 10)
+
+        Qi_scores = []
+        r2_scores = []
+        best_tau = None
+        best_r2_test = -np.inf
 
         for tau in tau_values:
-            print(f"Tau Test = {tau}")
-            sgd_ridge = self.run_sgd_ridge(tau=tau)  # Обучаем модель SGDRidgeModel для текущего tau
-
+            print(f"Tau = {tau:.8f}")
+            sgd_ridge = self.run_sgd_ridge(tau=tau) 
+            
             Qi_scores.append((tau, sgd_ridge.q_values))  # Сохраняем tau и его значения функции потерь
             
             # Рассчитываем R^2 для обучающей и тестовой выборок
-            r2_train = sgd_ridge.r2_score(self.X_train, self.y_train)
-            r2_test = sgd_ridge.r2_score(self.X_test, self.y_test)
-            r2_scores.append([r2_train, r2_test])  # Сохраняем R^2
+            r2_train = sgd_ridge.r2(self.X_train, self.y_train)
+            r2_test = sgd_ridge.r2(self.X_test, self.y_test)
+            r2_scores.append([r2_train, r2_test])
+            
+            if r2_test > best_r2_test:
+                best_r2_test = r2_test
+                best_tau = tau
 
-        # Настройка графиков
-        num_plots = len(Qi_scores)
-        num_cols = 3  
-        num_rows = (num_plots + num_cols - 1) // num_cols
-
-        fig, axs = plt.subplots(num_rows, num_cols, figsize=(15, num_rows * 4))
-
-        for i, (plot, ax) in enumerate(zip(Qi_scores, axs.flat)):
-            tau, q_values = plot
-            ax.plot(q_values)
-            ax.set_xlabel('Эпоха')
-            ax.set_ylabel('Функция потерь (Q_i)')
-            ax.set_title(f'График сходимости\nTau: {tau}')
+        # Настройка графиков функции потерь
+        fig, ax = plt.subplots(figsize=(10, 6))
+        best_q_values = None
         
-        for j in range(i + 1, num_rows * num_cols):
-            fig.delaxes(axs.flat[j])
+        for i, (tau, q_values) in enumerate(Qi_scores):
+            r2_train, r2_test = r2_scores[i]
+            label = f'Tau: {tau:.8f}, r2 (train): {r2_train:.4f}, r2 (test): {r2_test:.4f}'
+            
+            if tau == best_tau:
+                ax.plot(q_values, label=f'Лучший Tau: {best_tau:.8f}, r2 (train): {r2_train:.4f}, r2 (test): {r2_test:.4f}', color='blue', linewidth=2)
+            else:
+                ax.plot(q_values, label=label, alpha=0.5)
 
-        plt.tight_layout()
+        ax.set_xlabel('i')
+        ax.set_ylabel('Функция потерь (Q_i)')
+        ax.set_title('Графики сходимости для разных Tau и R²')
+        ax.legend(loc='best')
         plt.show()
 
-        plt.plot(r2_scores)
-        plt.xlabel('1/10^i')
-        plt.ylabel('R2')
-        plt.title('Зависимость R2 от Tau')
+        # График зависимости R² от Tau
+        taus = [tau for tau, _ in Qi_scores]
+        r2_train_scores, r2_test_scores = zip(*r2_scores)
+        
+        fig, ax = plt.subplots(figsize=(10, 6))
+        ax.plot(taus, r2_train_scores, marker='o', label='R² (train)')
+        ax.plot(taus, r2_test_scores, marker='o', label='R² (test)')
+        
+        ax.set_xlabel('Tau')
+        ax.set_ylabel('R²')
+        ax.set_title('Зависимость R² от Tau')
+        ax.set_xscale('log')
+        ax.legend()
         plt.show()
-
-    def run_sgd_regressor(self):
-        """
-        Обучает и оценивает модель SGDRegressor из библиотеки sklearn.
-        Выводит значения коэффициента детерминации R^2 для обучающей и тестовой выборок.
-        """
+    def run_sgd_sclearn(self,tau=0.001):
         print("-----------------------------------------------------------------")
         print("Running SGDRegressor:")
         
@@ -79,18 +90,15 @@ class SGDExperiment:
         return sgd
 
     def run_sgd_ridge(self, tau=0.001):
-        """
-        Обучает и оценивает модель SGDRidgeModel с заданным значением tau (гиперпараметра регуляризации).
-        Выводит значения коэффициента детерминации R^2 для обучающей и тестовой выборок.
-        """
+
         print("-----------------------------------------------------------------")
         print("Running SGDRidgeModel:")
         
         sgd = SGDRidgeModel(tau=tau)
         sgd.fit(self.X_train, self.y_train)
         
-        r2_train = sgd.r2_score(self.X_train, self.y_train)
-        r2_test = sgd.r2_score(self.X_test, self.y_test)
+        r2_train = sgd.r2(self.X_train, self.y_train)
+        r2_test = sgd.r2(self.X_test, self.y_test)
         
         print(f"R^2 на обучающей выборке для SGDRidge: {r2_train}")
         print(f"R^2 на тестовой выборке для SGDRidge: {r2_test}")
